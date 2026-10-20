@@ -9,9 +9,8 @@ import Mathlib.Data.List.Sublists
 # Paper 1: exact certificates for the finite examples
 
 Reading order: generic rational checkers and soundness; connected-set coverage;
-the spider's three-step bound; an invariant polytope for the linear reward example.
-Rational execution agrees with the shared real model. Finite certificates are
-checked in Lean, and the polytope implications use exact linear arithmetic.
+the spider's three-step bound. Rational execution agrees with the shared real
+model. Finite certificates are checked in Lean using exact arithmetic.
 External searches can suggest data but are not part of the trusted proof.
 -/
 
@@ -49,35 +48,6 @@ theorem checkBound_sound (moves : List (Finset V)) (f : (V → ℚ) → ℚ) (B 
     | cons S σ =>
       exact ih _ ((List.all_eq_true.mp hc'.2) S (hm S (by simp))) σ
         (fun T hT => hm T (by simp [hT])) (by simpa using hlen)
-
-/-- For repetition-free words, erase a move after using it and enumerate distinct remaining moves. -/
-def checkDistinct (f : (V → ℚ) → ℚ) (B : ℚ) :
-    ℕ → List (Finset V) → (V → ℚ) → Bool
-  | 0, _, w => decide (f w ≤ B)
-  | k + 1, moves, w => decide (f w ≤ B) &&
-      moves.all (fun S => checkDistinct f B k (moves.erase S) (averageQ S w))
-
-/-- A successful distinct-move check bounds every duplicate-free word from the supplied list within the horizon. -/
-theorem checkDistinct_sound (f : (V → ℚ) → ℚ) (B : ℚ) (k : ℕ)
-    (moves : List (Finset V)) (w : V → ℚ) (hc : checkDistinct f B k moves w = true)
-    (σ : Strategy V) (hm : ∀ S ∈ σ, S ∈ moves) (hlen : σ.length ≤ k) (hd : σ.Nodup) :
-    f (runQ σ w) ≤ B := by
-  induction k generalizing σ moves w with
-  | zero =>
-    have hnil : σ = [] := List.length_eq_zero_iff.mp (Nat.eq_zero_of_le_zero hlen)
-    subst σ
-    exact of_decide_eq_true hc
-  | succ k ih =>
-    have hc' := Bool.and_eq_true_iff.mp hc
-    cases σ with
-    | nil => exact of_decide_eq_true hc'.1
-    | cons S σ =>
-      have hd' := List.nodup_cons.mp hd
-      apply ih (moves.erase S) _ ((List.all_eq_true.mp hc'.2) S (hm S (by simp))) σ
-        ?_ (by simpa using hlen) hd'.2
-      intro T hT
-      have hne : T ≠ S := fun h => hd'.1 (h ▸ hT)
-      exact (List.mem_erase_of_ne hne).mpr (hm T (by simp [hT]))
 
 /-!
 ## Preparation: finite certificates for connected selected sets
@@ -339,65 +309,3 @@ theorem spider_three_certificate :
   exact branches i
 
 end WaterTransport.Examples
-
-
-/-!
-## Example 4.3 certificate: an invariant reward polytope
-
-The certificate consists of 22 linear inequalities and total mass 111.
-All seven nontrivial star moves preserve it. The example file verifies membership
-of the initial state and propagates this invariant through an arbitrary strategy.
-Exact real arithmetic proves the objective bound for all finite lengths.
--/
-
-namespace WaterTransport.RewardCertificate
-
-set_option linter.unnecessarySeqFocus false
-
-def moves : List (Finset (Fin 4)) := [{0, 1}, {0, 2}, {0, 3}, {0, 1, 2}, {0, 1, 3}, {0, 2, 3}, {0, 1, 2, 3}]
-
-/-- The reward example's 22 linear inequalities together with total mass 111. -/
-def Invariant (w : State (Fin 4)) : Prop :=
-  w 0 + w 1 + w 2 + w 3 = 111 ∧
-  -1 * w 0 + -1 * w 1 + -1 * w 2 ≤ (-677 / 9) ∧
-  -1 * w 0 + -1 * w 1 + (-1 / 2) * w 2 ≤ (-172 / 3) ∧
-  -1 * w 0 + (-11 / 19) * w 1 + (-15 / 38) * w 2 ≤ (-860 / 19) ∧
-  -1 * w 0 + (-1 / 2) * w 1 + (-597 / 38) * w 2 ≤ (-73793 / 171) ∧
-  -1 * w 0 + (-19 / 417) * w 1 + (-218 / 417) * w 2 ≤ (-147586 / 3753) ∧
-  -1 * w 0 + (-5073 / 119791) * w 1 + (-5365 / 17113) * w 2 ≤ (-3806230 / 119791) ∧
-  -1 * w 0 + (-19 / 616) * w 1 + (-1 / 2) * w 2 ≤ (-141259 / 3696) ∧
-  -1 * w 1 + (-199 / 19) * w 2 ≤ (-147586 / 513) ∧
-  -1 * w 1 + -2 * w 2 ≤ (-677 / 9) ∧
-  -1 * w 1 ≤ (-11 / 3) ∧
-  -1 * w 2 ≤ (-445 / 18) ∧
-  1 * w 2 ≤ 100 ∧
-  1 * w 1 ≤ (221 / 6) ∧
-  1 * w 1 + (161 / 379) * w 2 ≤ (19890 / 379) ∧
-  1 * w 0 + -1 * w 1 + (-289 / 19) * w 2 ≤ (-128605 / 342) ∧
-  1 * w 0 + -1 * w 1 + 1 * w 2 ≤ 100 ∧
-  1 * w 0 + (-1 / 4) * w 1 + -1 * w 2 ≤ (-11 / 12) ∧
-  1 * w 0 + (-57 / 488) * w 1 + (-109 / 122) * w 2 ≤ (7459 / 1464) ∧
-  1 * w 0 + (-109 / 1464) * w 1 + (-623 / 732) * w 2 ≤ (2725 / 366) ∧
-  1 * w 0 + (1 / 5) * w 1 + (-3 / 5) * w 2 ≤ (221 / 10) ∧
-  1 * w 0 + 1 * w 1 + -1 * w 2 ≤ (221 / 6) ∧
-  1 * w 0 + 1 * w 1 + 1 * w 2 ≤ (221 / 2)
-
-set_option maxHeartbeats 2000000 in
-/-- Every listed nontrivial star move preserves all constraints of the reward invariant. -/
-theorem average_mem (w : State (Fin 4)) (hw : Invariant w)
-    (S : Finset (Fin 4)) (hS : S ∈ moves) : Invariant (average S w) := by
-  rcases hw with ⟨hm, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21⟩
-  simp only [moves, List.mem_cons, List.not_mem_nil, or_false] at hS
-  rcases hS with rfl | rfl | rfl | rfl | rfl | rfl | rfl
-  all_goals unfold Invariant
-  all_goals (repeat' apply And.intro)
-  all_goals norm_num [average, mean, Finset.sum_insert,
-    Finset.card_insert_of_notMem, Fin.ext_iff] <;> linarith
-
-/-- Every state in the invariant has linear reward at most 20361/5. -/
-theorem objective_le (w : State (Fin 4)) (hw : Invariant w) :
-    (1 / 10) * w 0 + 100 * w 1 + 10 * w 2 + w 3 ≤ 20361 / 5 := by
-  rcases hw with ⟨hm, h0, h1, h2, h3, h4, h5, h6, h7, h8, h9, h10, h11, h12, h13, h14, h15, h16, h17, h18, h19, h20, h21⟩
-  linarith only [hm, h6, h12, h13]
-
-end WaterTransport.RewardCertificate

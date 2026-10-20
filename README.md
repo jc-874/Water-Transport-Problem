@@ -8,7 +8,7 @@ operation, a finite strategy, reachability, and optimality.
 
 | Library | Paper / topic | Formalized results |
 | --- | --- | --- |
-| [`WaterTransport1`](WaterTransport1) | *Water Transport on a Path: Finding the Strategy Through Its Existence* | Convergence and finite reachability of limits, attainment of continuous objectives, the path two-step theorem, the star algorithm, and the three examples. |
+| [`WaterTransport1`](WaterTransport1) | *Water Transport on a Path: Finding the Strategy Through Its Existence* | Convergence and finite reachability of limits, attainment of continuous objectives, the path two-step theorem, the star algorithm, and Examples 4.1 and 4.2. |
 | [`WaterTransport2`](WaterTransport2) | *3-spider 上的 water transport problem 所需策略是任意长的* (arbitrarily long optimal strategies on 3-spiders) | Barrier inequalities and equality cases, lexicographic extremality, explicit separating weights, and unbounded optimal strategy length as the graph size grows. |
 | [`WaterTransport3`](WaterTransport3) | *A Uniform Bound on Optimal Strategy Length in Water Transport Problem* | Local operator geometry, uniform convex-hull stabilization, explicit and asymptotic length bounds, and correctness of exact search for rational inputs. |
 
@@ -17,6 +17,10 @@ Its main uniform-bound and exact-search results do not depend on `sorry`.
 Section 6 still has three deferred certificate bounds, listed below.
 The bit-complexity analysis, binary encoding, and NEXP membership claim are
 not formalized.
+
+Example 4.3 of Paper 1 (the linear-objective repetition example) is intentionally
+excluded from this project. The five-vertex example in Paper 3 is separate and
+retains the proof status described below.
 
 The path theorem in Paper 1 is proved using general attainment and a shortest
 globally optimal strategy. The finite-horizon stabilization statement follows
@@ -84,7 +88,7 @@ section numbers of the papers. Later papers reuse the first paper's model.
 | `WaterTransport1/S03`–`S05` | Analysis, attainment of optimal values, and the shortest optimal length. |
 | `WaterTransport1/S06`–`S08` | Path geometry, shortening, and the public path theorems. |
 | `WaterTransport1/S09` | The star algorithm and its optimality. |
-| `WaterTransport1/S10`–`S11` | Finite certificate checkers, their soundness, and the three examples. |
+| `WaterTransport1/S10`–`S11` | Finite certificate checkers, their soundness, and Examples 4.1 and 4.2. |
 | `WaterTransport2/S01`–`S04` | The spider construction, barriers, lexicographic comparisons, and the length lower bound. |
 | `WaterTransport3/S01`–`S03` | Operators, local geometry, and the uniform bound. |
 | `WaterTransport3/S04` | The five-vertex repetition example, including the explicitly deferred certificates. |
@@ -154,8 +158,11 @@ statements and definitions and several model boundary cases.
 any other declaration depending on `sorryAx` causes the audit to fail.
 
 The fixed baselines in [`Research`](Research) are inputs to the declaration
-checks. They preserve 223 declarations from Paper 1 and 140 from Papers 2 and 3.
-Do not regenerate the baselines to make an altered mathematical statement pass.
+checks. The original 223-entry Paper 1 baseline is unchanged: the audit preserves
+the 207 retained declarations and requires the 16 explicitly listed Example 4.3
+declarations to be absent. All 140 baseline declarations from Papers 2 and 3
+remain checked. Do not regenerate the baselines to make an altered mathematical
+statement pass.
 
 Finite numerical certificates use exact arithmetic and Lean kernel checks.
 There are no project-specific axioms asserting the results of an external

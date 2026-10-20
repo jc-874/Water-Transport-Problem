@@ -38,8 +38,9 @@ run_cmd do
 /-!
 ## 原有声明保护（公开与私有）
 
-精简前后的声明保护：比较所有原有公开声明的完整类型，以及数学定义的表达式。
-这里覆盖 61 个公开定义或缩写及 162 个公开定理；上一节的公理审计还覆盖实例和私有声明。
+精简前后的声明保护：比较仍在项目范围内的原有声明的完整类型，以及数学定义的表达式。
+原始基线记录 61 个定义或缩写及 162 个定理；其中例 4.3 的 16 个声明已按要求删除。
+下文逐一确认这些声明缺席，并继续保护其余 207 个声明。上一节的公理审计覆盖全部现存声明。
 基线由精简前通过构建和公理审计的环境生成，存于 Research。
 
 移动模块会改变自动生成的束缚变量名中的宏作用域标签。只规范化 `forallE`、
@@ -96,10 +97,7 @@ run_cmd do
     `WaterTransport.Examples.pathWitness_first_decreases, `WaterTransport.Examples.spiderGraph,
     `WaterTransport.Examples.spiderWeights, `WaterTransport.Examples.spiderWitness,
     `WaterTransport.Examples.spider_four_steps_beat_three,
-    `WaterTransport.Examples.spider_optimalLength_gt_three,
-    `WaterTransport.Examples.rewardWeights, `WaterTransport.Examples.reward,
-    `WaterTransport.Examples.rewardWitness, `WaterTransport.Examples.rewardWitness_optimal,
-    `WaterTransport.Examples.optimal_reward_requires_repetition]
+    `WaterTransport.Examples.spider_optimalLength_gt_three]
   for name in core do
     unless env.contains name do
       throwError "Paper interface is no longer public: {name}"
@@ -123,8 +121,34 @@ run_cmd do
   let normalize : Expr → String := fun e => stableExprRepr (reprStr (e.replace fun
     | .const name levels => (privateNames.find? name).map (fun user => .const user levels)
     | _ => none))
+  -- Example 4.3 was explicitly removed from the project scope.
+  -- Keep the original baseline unchanged: require these exact declarations to
+  -- be absent, and still compare every retained statement and definition.
+  let removedExample43 : Array String := #[
+    "WaterTransport.checkDistinct",
+    "WaterTransport.checkDistinct_sound",
+    "WaterTransport.RewardCertificate.moves",
+    "WaterTransport.RewardCertificate.Invariant",
+    "WaterTransport.RewardCertificate.average_mem",
+    "WaterTransport.RewardCertificate.objective_le",
+    "WaterTransport.Examples.rewardWeights",
+    "WaterTransport.Examples.reward",
+    "WaterTransport.Examples.rewardWitness",
+    "WaterTransport.Examples.rewardWeights_nonnegative",
+    "WaterTransport.Examples.rewardWitness_legal",
+    "WaterTransport.Examples.rewardWitness_value",
+    "WaterTransport.Examples.rewardWitness_repeats",
+    "WaterTransport.Examples.rewardWitness_optimal",
+    "WaterTransport.Examples.repetitionFree_reward_bound",
+    "WaterTransport.Examples.optimal_reward_requires_repetition"]
+  for name in removedExample43 do
+    unless expected.any (fun entry => entry.1 == name) do
+      throwError "Removed declaration is not in the original baseline: {name}"
+    if (byUser.find? name.toName).isSome then
+      throwError "Example 4.3 declaration is still present: {name}"
   let mut hidden : Nat := 0
   for (name, type, value) in expected do
+    if removedExample43.contains name then continue
     let some actual := byUser.find? name.toName
       | throwError "Missing declaration: {name}"
     let some decl := env.find? actual
@@ -135,7 +159,7 @@ run_cmd do
     if let some original := value then
       unless decl.value?.map normalize == some (stableExprRepr original) do
         throwError "Definition changed: {name}"
-  logInfo m!"Preserved all {expected.size} original statements and definitions, including {hidden} now private (modulo generated binder names and private name prefixes)."
+  logInfo m!"Preserved all {expected.size - removedExample43.size} retained original statements and definitions, including {hidden} now private; {removedExample43.size} explicitly removed Example 4.3 declarations are absent. The original {expected.size}-entry baseline is unchanged."
 
 /-!
 ## 模型边界核对
@@ -214,13 +238,6 @@ theorem cone_objective_attained (G : SimpleGraph V)
   simpa only [F, dif_pos (run_nonnegative τ hw), dif_pos (run_nonnegative σ hw)]
     using hmax τ hτ
 
-/-- 忽略单点重复没有弱化例 4.3：字面上完全不重复的策略也不可能最优。 -/
-theorem literal_repetition_required (σ : Strategy (Fin 4))
-    (hopt : IsOptimalFor (star 3) Examples.reward Examples.rewardWeights σ) :
-    ¬ σ.Nodup := by
-  intro h
-  exact Examples.optimal_reward_requires_repetition σ hopt (List.Nodup.filter _ h)
-
 end WaterTransport.SemanticChecks
 
 #print axioms WaterTransport.SemanticChecks.empty_move_illegal
@@ -232,4 +249,3 @@ end WaterTransport.SemanticChecks
 #print axioms WaterTransport.SemanticChecks.skipped_middle_illegal
 #print axioms WaterTransport.SemanticChecks.optimalLength_proof_independent
 #print axioms WaterTransport.SemanticChecks.cone_objective_attained
-#print axioms WaterTransport.SemanticChecks.literal_repetition_required

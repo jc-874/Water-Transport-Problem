@@ -1,22 +1,19 @@
 import WaterTransport1.S08_PathTheorem
-import WaterTransport1.S09_Stars
 import WaterTransport1.S10_FiniteCertificates
 import Mathlib.Tactic.FinCases
 import Mathlib.Tactic.NormNum
 import Mathlib.Combinatorics.SimpleGraph.Connectivity.Finite
-import Mathlib.Data.List.Perm.Subperm
 
 /-!
-# Paper 1, Section 4: three explicit examples
+# Paper 1, Section 4: Examples 4.1 and 4.2
 
-Each example specifies its graph, initial weights, target or objective, and witness.
-Decimal input is represented by exact rational values. The paper's vertices
+Each example specifies its graph, initial weights, target, and witness.
+All numerical calculations use exact arithmetic. The paper's vertices
 v_1,...,v_9 correspond to Lean indices 0,...,8.
 
 Reading order: Example 4.1 (two path moves are necessary); Example 4.2 (more than
-three moves on a spider); Example 4.3 (repetition for a linear objective).
-Finite-horizon bounds use the sound rational checkers in S10_FiniteCertificates;
-the arbitrary-length linear reward bound uses its invariant polytope.
+three moves on a spider). Finite-horizon bounds use the sound rational checkers
+in S10_FiniteCertificates. Example 4.3 is outside the current project scope.
 -/
 
 namespace WaterTransport
@@ -240,129 +237,6 @@ theorem spider_optimalLength_gt_three :
     spiderWeights_nonnegative 0 3).mp (le_of_not_gt h)
   exact (not_lt_of_ge (hσ.2 spiderWitness spiderWitness_legal))
     (spider_four_steps_beat_three σ hσ.1 hlen)
-
-/-!
-## Example 4.3: every optimal strategy for a linear reward repeats a set
-
-The graph is a four-vertex star centered at vertex 0. Specify the linear reward,
-evaluate the repeated-set witness, propagate the invariant polytope, and bound
-all repetition-free competitors. The objective involves several vertices.
--/
-
-def rewardWeights : State (Fin 4) := fun v =>
-  match v.val with
-  | 1 => 10
-  | 2 => 100
-  | 3 => 1
-  | _ => 0
-
-noncomputable def reward (w : State (Fin 4)) : ℝ :=
-  (1 / 10) * w 0 + 100 * w 1 + 10 * w 2 + w 3
-
-def rewardWitness : Strategy (Fin 4) := [{0, 3}, {0, 1, 2}, {0, 3}]
-
-private theorem rewardWeights_nonnegative : Nonnegative rewardWeights := by
-  intro v
-  fin_cases v <;> norm_num [rewardWeights]
-
-private def rewardMoves : List (Finset (Fin 4)) := RewardCertificate.moves
-
-private def rewardWeightsQ : Fin 4 → ℚ := fun v =>
-  match v.val with
-  | 1 => 10
-  | 2 => 100
-  | 3 => 1
-  | _ => 0
-
-private def rewardQ (w : Fin 4 → ℚ) : ℚ :=
-  (1 / 10) * w 0 + 100 * w 1 + 10 * w 2 + w 3
-
-private theorem rewardWeights_cast : rewardWeights = fun v => (rewardWeightsQ v : ℝ) := by
-  funext v
-  fin_cases v <;> norm_num [rewardWeights, rewardWeightsQ]
-
-private theorem reward_cast (w : Fin 4 → ℚ) : reward (fun v => (w v : ℝ)) = (rewardQ w : ℝ) := by
-  simp [reward, rewardQ]
-
-set_option maxRecDepth 10000 in
-set_option maxHeartbeats 4000000 in
-private theorem reward_moves_complete : ∀ S : Finset (Fin 4),
-    IsLegalMove (star 3) S → 2 ≤ S.card → S ∈ rewardMoves := by
-  unfold IsLegalMove star
-  decide +kernel
-
-private theorem rewardWitness_legal : IsLegal (star 3) rewardWitness := by
-  unfold IsLegal IsLegalMove rewardWitness star
-  decide +kernel
-
-theorem rewardWitness_value : reward (run rewardWitness rewardWeights) = 20361 / 5 := by
-  rw [rewardWeights_cast, runQ_cast, reward_cast]
-  rw [show rewardQ (runQ rewardWitness rewardWeightsQ) = 20361 / 5 by decide +kernel]
-  norm_num
-
-theorem rewardWitness_repeats : ¬ RepetitionFree rewardWitness := by
-  unfold RepetitionFree rewardWitness
-  decide
-
-/-- The paper's three-step witness is globally optimal for the linear reward.
-The invariant proof compares against every finite length. -/
-theorem rewardWitness_optimal : IsOptimalFor (star 3) reward rewardWeights rewardWitness := by
-  have hrun : ∀ (τ : Strategy (Fin 4)), (∀ S ∈ τ, S ∈ RewardCertificate.moves) →
-      ∀ w, RewardCertificate.Invariant w → RewardCertificate.Invariant (run τ w) := by
-    intro τ
-    induction τ with
-    | nil => intro _ w hw; exact hw
-    | cons S τ ih =>
-      intro hτ w hw
-      exact ih (fun T hT => hτ T (by simp [hT])) _
-        (RewardCertificate.average_mem w hw S (hτ S (by simp)))
-  have hinit : RewardCertificate.Invariant rewardWeights := by
-    norm_num [RewardCertificate.Invariant, rewardWeights]
-  refine ⟨rewardWitness_legal, ?_⟩
-  intro σ hσ
-  rw [rewardWitness_value, ← run_filter_nontrivial σ rewardWeights]
-  apply RewardCertificate.objective_le
-  apply hrun _ _ _ hinit
-  intro S hS
-  have hs := List.mem_filter.mp hS
-  exact reward_moves_complete S (hσ S hs.1) (of_decide_eq_true hs.2)
-
-/- There are seven nontrivial legal sets, so repetition-free strategies admit a finite exhaustive bound.
-Delete singleton identity moves first to cover arbitrarily long input lists. -/
-set_option maxRecDepth 10000 in
-set_option maxHeartbeats 8000000 in
-private theorem reward_distinct_certificate :
-    checkDistinct rewardQ (81117 / 20) 7 rewardMoves rewardWeightsQ = true := by
-  decide +kernel
-
-private theorem repetitionFree_reward_bound (σ : Strategy (Fin 4))
-    (hσ : IsLegal (star 3) σ) (hfree : RepetitionFree σ) :
-    reward (run σ rewardWeights) ≤ 81117 / 20 := by
-  let τ := σ.filter (fun S => 2 ≤ S.card)
-  have hm : ∀ S ∈ τ, S ∈ rewardMoves := by
-    intro S hS
-    have hs := List.mem_filter.mp hS
-    exact reward_moves_complete S (hσ S hs.1) (of_decide_eq_true hs.2)
-  have hd : τ.Nodup := hfree
-  have hlen : τ.length ≤ 7 := (hd.subperm hm).length_le
-  have hb := checkDistinct_sound rewardQ (81117 / 20) 7 rewardMoves rewardWeightsQ
-    reward_distinct_certificate τ hm hlen hd
-  rw [← run_filter_nontrivial σ rewardWeights, rewardWeights_cast, runQ_cast, reward_cast]
-  change (rewardQ (runQ τ rewardWeightsQ) : ℝ) ≤ 81117 / 20
-  have hc : (rewardQ (runQ τ rewardWeightsQ) : ℝ) ≤ ((81117 / 20 : ℚ) : ℝ) :=
-    Rat.cast_le.mpr hb
-  norm_num only [Rat.cast_div, Rat.cast_ofNat] at hc
-  exact hc
-
-/-- Every globally optimal strategy repeats a selected set containing at least two vertices. -/
-theorem optimal_reward_requires_repetition (σ : Strategy (Fin 4))
-    (hopt : IsOptimalFor (star 3) reward rewardWeights σ) : ¬ RepetitionFree σ := by
-  intro hfree
-  have hupper := repetitionFree_reward_bound σ hopt.1 hfree
-  have hlower := hopt.2 rewardWitness rewardWitness_legal
-  rw [rewardWitness_value] at hlower
-  norm_num at hupper hlower
-  linarith
 
 end Examples
 end WaterTransport
